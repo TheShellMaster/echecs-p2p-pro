@@ -1,0 +1,2 @@
+IDI_MAIN_ICON ICON "/home/theshellpc/Bureau/echec/assets/icon.ico"
+IDR_PAYLOAD RCDATA "/home/theshellpc/Bureau/echec/build/windows_payload.zip"

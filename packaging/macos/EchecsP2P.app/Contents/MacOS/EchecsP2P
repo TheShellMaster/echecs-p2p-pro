@@ -1,0 +1,5 @@
+#!/bin/bash
+DIR="$(cd "$(dirname "$0")/.." && pwd)"
+export PYTHONPATH="$DIR/Resources:$PYTHONPATH"
+cd "$DIR/Resources"
+exec python3 main.py "$@"

@@ -1,0 +1,33 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# PyInstaller & Build artifacts
+build/
+dist/
+*.spec.bak
+
+# Large binary engine files (>100MB, fetched automatically or attached to releases)
+stockfish_bin
+stockfish.exe
+stockfish
+packaging/windows/setup_res.o
+
+# Large distribution packages (>100MB, uploaded to GitHub Releases)
+distribution/*.deb
+distribution/*.tar.gz
+distribution/*.exe
+distribution/*.zip
+
+# Virtual environments & IDE
+.env
+.venv
+env/
+venv/
+.idea/
+.vscode/
+
+# OS artifacts
+.DS_Store
+Thumbs.db
