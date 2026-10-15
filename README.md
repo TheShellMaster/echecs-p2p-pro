@@ -1,11 +1,13 @@
-# 👑 Échecs P2P Pro (v2.1.0)
+# Échecs — refonte hors ligne en cours
+
+> Le client actuellement jouable est l'ancienne version desktop Pygame. Le nouveau client Godot est en construction. Les parties contre l'IA et les parties entre appareils proches sont conçues pour fonctionner sans compte ni Internet.
 
 <p align="center">
   <img src="assets/logo.png" alt="Échecs P2P Pro Logo" width="160" height="160">
 </p>
 
 <p align="center">
-  <strong>Jeu d'échecs moderne, multijoueur en réseau local (P2P sans saisie d'IP), et moteur IA Stockfish 19 intégré.</strong>
+  <strong>Un jeu d'échecs hors ligne : IA locale, partie à deux et jeu à proximité sur réseau local.</strong>
 </p>
 
 <p align="center">
@@ -19,26 +21,23 @@
 
 ## ✨ Points Forts & Fonctionnalités
 
-* 🌐 **Multijoueur P2P LAN sans configuration d'IP** : Auto-découverte des hôtes sur le réseau local via broadcast UDP. Créez un salon personnalisé d'un clic, vos amis le rejoignent instantanément.
-* 🤖 **Moteur IA Stockfish 19 & Rythme Immersif** :
-  * 4 niveaux de difficulté (Débutant 800 Elo, Intermédiaire 1500 Elo, Avancé 2200 Elo, Grand Maître Monstre 3600+ Elo).
-  * Temporisation de réflexion humaine (1.5s à 3s) avec détection et surbrillance des menaces tactiques.
-  * Moteur Python de secours intégré (Minimax avec élagage Alpha-Bêta) garantissant zéro panne.
-* 🎨 **Interface Lumineuse Grand Public (Style Material 3 / Duolingo)** :
-  * Fond clair épuré, cartes blanches flottantes, ombres douces et boutons tactiles 3D à effet d'enfoncement physique.
-  * 4 thèmes d'échiquier : *Bois Noble*, *Émeraude Tournoi*, *Néo Sombre*, *Marbre & Onyx*.
-* 🎬 **Moteur d'Animations Slow-Motion** :
-  * Soulèvement de la pièce sélectionnée avec zoom 1.15x et ombre portée dynamique.
-  * Glissement fluide ralenti (280ms avec courbe de décélération cubic).
-  * Rebond élastique (*spring bounce*) à l'atterrissage sur la case cible.
-  * Ondes de choc visuelles à l'impact (captures / échecs) et pluie de confettis dorés au mat.
-* 🏹 **Outils Tactiques au Clic Droit** :
-  * Maintien du clic droit + glisser pour tracer des flèches vectorielles d'attaque (style Chess.com/Lichess).
-  * Clic droit simple pour marquer une case d'un cercle coloré.
-* 📊 **Barre d'Évaluation en Temps Réel (Eval Bar)** : Jauge dynamique Stockfish affichant en direct l'avantage de la position.
-* ⏱️ **Pendule Digitale & Historique SAN** : Horloges configurables (Illimité, 3 min Blitz, 5 min, 10 min) avec alerte sous les 30s.
-* 💬 **Chat Textuel en Direct** : Messagerie instantanée intégrée lors des parties P2P en réseau.
-* 📱 **Fenêtre 100% Responsive** : Redimensionnement en direct (`pygame.RESIZABLE`) et support du plein écran (`F11`).
+* 🤖 **Partie contre une IA locale** : Stockfish peut être utilisé lorsqu'il est présent. Le niveau réel dépend du moteur livré avec le paquet; le mode de secours actuel n'offre pas la même force.
+* ♟️ **Partie locale à deux** sur le même appareil.
+* 📡 **Partie entre appareils proches** : l'ancien client découvre les hôtes par broadcast UDP sur le même réseau local. Il ne requiert pas Internet, mais ne sait pas encore établir un lien Wi‑Fi Direct sans routeur.
+* 🎬 **Mouvements animés**, sélection et destinations légales, prise, échec, promotion et fin de partie.
+* 🧭 **Fonctions avancées** de l'ancien client : pendules, historique et replay, annotations, indices, thèmes de plateau et chat LAN.
+
+## État réel des plateformes
+
+| Plateforme | État dans ce dépôt |
+| --- | --- |
+| Linux x86_64 | Paquet et exécutable présents; validation du lancement à effectuer |
+| Windows | Exécutable/installeur présents; validation sur Windows à effectuer |
+| macOS | Archive présente, mais son lanceur dépend de Python installé |
+| Android | Configuration de packaging présente; aucun APK/AAB livré |
+| iOS | Aucun projet ou IPA présent |
+
+Les exports mobiles et la connexion de proximité sans routeur sont des objectifs de la refonte, pas des fonctions livrées aujourd'hui. Godot est le nouveau client visé parce qu'il est conçu pour les jeux et les interfaces tactiles; son prototype doit encore prouver le jeu complet et les exports. Le jeu n'utilisera pas de serveur IA ou de relais cloud.
 
 ---
 
@@ -56,11 +55,7 @@ python3.12 main.py
 ```
 
 ### 3. Exécutables & Installeurs Autonomes
-Des paquets officiels sont disponibles dans le dossier `distribution/` et sur la page **Releases** :
-* **Windows** : `Setup-EchecsP2P-v2.exe` (Véritable installeur avec raccourcis et désinstalleur)
-* **Linux (Debian / Ubuntu / Mint)** : `echecs-p2p_2.1.0_amd64.deb`
-* **Linux (Toutes distributions)** : `EchecsP2P-Linux-Portable.tar.gz` avec script `installer.sh`
-* **macOS** : `EchecsP2P.app` bundle
+Les artefacts existants dans `distribution/` sont des builds historiques. Ils ne représentent pas encore une matrice de versions testées pour tous les appareils; voir le tableau ci-dessus.
 
 ---
 

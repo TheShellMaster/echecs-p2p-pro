@@ -93,28 +93,31 @@ def test_board_themes():
 
     # Test cycling through all 4 themes in UI
     ui = app.ui
-    assert ui.theme_key == "bois"
-    assert ui.theme["name"] == "Bois Noble"
+    assert ui.theme_key == DEFAULT_THEME
+    assert ui.theme["name"] == THEMES[DEFAULT_THEME]["name"]
 
     th2 = ui.cycle_theme()
-    assert th2 == "emeraude"
-    assert ui.theme["name"] == "Émeraude Tournoi"
+    expected_next = THEME_KEYS[(THEME_KEYS.index(DEFAULT_THEME) + 1) % len(THEME_KEYS)]
+    assert th2 == expected_next
+    assert ui.theme["name"] == THEMES[expected_next]["name"]
 
     th3 = ui.cycle_theme()
-    assert th3 == "neo"
-    assert ui.theme["name"] == "Néo Sombre"
+    expected_third = THEME_KEYS[(THEME_KEYS.index(DEFAULT_THEME) + 2) % len(THEME_KEYS)]
+    assert th3 == expected_third
+    assert ui.theme["name"] == THEMES[expected_third]["name"]
 
     th4 = ui.cycle_theme()
-    assert th4 == "marbre"
-    assert ui.theme["name"] == "Marbre & Verre"
+    expected_fourth = THEME_KEYS[(THEME_KEYS.index(DEFAULT_THEME) + 3) % len(THEME_KEYS)]
+    assert th4 == expected_fourth
+    assert ui.theme["name"] == THEMES[expected_fourth]["name"]
 
     th5 = ui.cycle_theme()
-    assert th5 == "bois"
+    assert th5 == DEFAULT_THEME
 
     # Test app.cycle_theme method and button label
     app.cycle_theme()
-    assert app.current_theme == "emeraude"
-    assert "Émera" in app.btn_theme.text
+    assert app.current_theme == expected_next
+    assert THEMES[expected_next]["name"].split()[0] in app.btn_theme.text
 
     # Verify 3D board renders with all 4 themes without crashing
     for th in expected_themes:

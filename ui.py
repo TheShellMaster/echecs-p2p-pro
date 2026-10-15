@@ -16,22 +16,22 @@ class Button:
     Bouton tactile 3D style Duolingo / Material 3 :
     Possède un biseau inférieur physique épais qui s'enfonce de 3px au clic de la souris.
     """
-    def __init__(self, rect, text, bg_color=None, hover_color=None, 
+    def __init__(self, rect, text, bg_color=None, hover_color=None,
                  text_color=None, font_size=18, border_color=None, edge_color=None):
         self.rect = pygame.Rect(rect)
         self.text = text
-        
+
         # Thème par défaut clair Material 3
         self.bg_color = bg_color if bg_color is not None else COLOR_BG_CARD
         self.hover_color = hover_color if hover_color is not None else COLOR_BG_HOVER
         self.text_color = text_color if text_color is not None else COLOR_TEXT_MAIN
         self.border_color = border_color if border_color is not None else COLOR_BORDER
-        
+
         # Couleur du rebord 3D inférieur
         if edge_color is not None:
             self.edge_color = edge_color
-        elif self.bg_color == COLOR_BG_CARD or self.bg_color == pygame.Color("#FFFFFF"):
-            self.edge_color = pygame.Color("#CBD5E1")
+        elif self.bg_color == COLOR_BG_CARD:
+            self.edge_color = COLOR_BORDER_STRONG
         elif self.bg_color == COLOR_EMERALD:
             self.edge_color = COLOR_EMERALD_DARK
         elif self.bg_color == COLOR_INDIGO:
@@ -46,11 +46,13 @@ class Button:
             self.edge_color = pygame.Color(r, g, b)
 
         self.font_size = font_size
-        self.font = pygame.font.SysFont('Segoe UI', font_size, bold=True)
+        self.font = pygame.font.SysFont('DejaVu Sans', font_size, bold=True)
         self.is_active = False
         self.is_pressed = False
-        self.extrude_depth = 4   # Hauteur normale du relief 3D
-        self.press_offset = 3    # Enfoncement physique en pixels lors du clic
+        self.hover_amount = 0.0
+        self._last_draw_ms = pygame.time.get_ticks()
+        self.extrude_depth = 2   # Petit rebord tactile, sans effet jouet encombrant
+        self.press_offset = 1    # Réponse physique discrète au clic
 
     def handle_event(self, event):
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
@@ -62,34 +64,41 @@ class Button:
     def draw(self, surface, mouse_pos):
         is_hovered = self.rect.collidepoint(mouse_pos)
         is_mouse_down = pygame.mouse.get_pressed()[0]
-        
+
+        # Entrée progressive et interruptible : le bouton monte sous le curseur.
+        now_ms = pygame.time.get_ticks()
+        dt = min(0.05, max(0.0, (now_ms - self._last_draw_ms) / 1000.0))
+        self._last_draw_ms = now_ms
+        target_hover = 1.0 if is_hovered else 0.0
+        self.hover_amount += (target_hover - self.hover_amount) * min(1.0, dt * 14.0)
+
         # Déterminer si le bouton est physiquement enfoncé
         pressed = (is_hovered and is_mouse_down) or self.is_pressed or self.is_active
-        offset_y = self.press_offset if pressed else 0
+        offset_y = self.press_offset if pressed else -int(self.hover_amount * 2)
         current_edge = max(1, self.extrude_depth - offset_y)
 
         # 1. Ombre portée douce au sol
-        shadow_rect = pygame.Rect(self.rect.x + 1, self.rect.y + self.extrude_depth + 1, 
+        shadow_rect = pygame.Rect(self.rect.x + 1, self.rect.y + self.extrude_depth + 1,
                                   self.rect.width, self.rect.height)
         shadow_surf = pygame.Surface((self.rect.width, self.rect.height), pygame.SRCALPHA)
-        pygame.draw.rect(shadow_surf, (15, 23, 42, 25 if not pressed else 12), 
+        pygame.draw.rect(shadow_surf, (15, 23, 42, 25 if not pressed else 12),
                          (0, 0, self.rect.width, self.rect.height), border_radius=10)
         surface.blit(shadow_surf, (shadow_rect.x, shadow_rect.y))
 
         # 2. Rebord inférieur 3D (Extrusion physique)
-        base_rect = pygame.Rect(self.rect.x, self.rect.y + offset_y + current_edge, 
+        base_rect = pygame.Rect(self.rect.x, self.rect.y + offset_y + current_edge,
                                 self.rect.width, self.rect.height - current_edge)
         edge_col = COLOR_GOLD_HOVER if self.is_active else self.edge_color
         pygame.draw.rect(surface, edge_col, base_rect, border_radius=10)
 
         # 3. Face supérieure du bouton
-        face_rect = pygame.Rect(self.rect.x, self.rect.y + offset_y, 
+        face_rect = pygame.Rect(self.rect.x, self.rect.y + offset_y,
                                 self.rect.width, self.rect.height - self.extrude_depth)
-        
+
         face_color = self.hover_color if (is_hovered and not pressed) else self.bg_color
         if self.is_active and self.bg_color == COLOR_BG_CARD:
-            face_color = pygame.Color("#FEF3C7") # Ambre très clair pour boutons actifs
-        
+            face_color = pygame.Color("#F4EADB")
+
         pygame.draw.rect(surface, face_color, face_rect, border_radius=10)
 
         # Liseré de contour
@@ -109,7 +118,7 @@ class TextInput:
         self.text = initial_text
         self.placeholder = placeholder
         self.max_chars = max_chars
-        self.font = pygame.font.SysFont('Segoe UI', font_size)
+        self.font = pygame.font.SysFont('DejaVu Sans', font_size)
         self.is_active = False
 
     def handle_event(self, event):
@@ -132,7 +141,7 @@ class TextInput:
 
     def draw(self, surface, mouse_pos):
         is_hovered = self.rect.collidepoint(mouse_pos)
-        
+
         # Ombre douce
         sh_rect = pygame.Rect(self.rect.x, self.rect.y + 1, self.rect.width, self.rect.height)
         sh_surf = pygame.Surface((self.rect.width, self.rect.height), pygame.SRCALPHA)
@@ -140,8 +149,8 @@ class TextInput:
         surface.blit(sh_surf, (sh_rect.x, sh_rect.y))
 
         # Fond blanc
-        pygame.draw.rect(surface, pygame.Color("#FFFFFF"), self.rect, border_radius=8)
-        
+        pygame.draw.rect(surface, COLOR_BG_CARD, self.rect, border_radius=8)
+
         # Bordure : Indigo quand actif, liseré doux sinon
         if self.is_active:
             border_col = COLOR_INDIGO
@@ -153,12 +162,12 @@ class TextInput:
             border_col = COLOR_BORDER
             border_w = 1
         pygame.draw.rect(surface, border_col, self.rect, width=border_w, border_radius=8)
-        
+
         # Zone de texte avec découpage interne
         inner_rect = pygame.Rect(self.rect.x + 10, self.rect.y + 2, self.rect.width - 20, self.rect.height - 4)
         prev_clip = surface.get_clip()
         surface.set_clip(inner_rect)
-        
+
         display_text = self.text
         avail_w = self.rect.width - 24
         if not display_text and not self.is_active:
@@ -170,10 +179,10 @@ class TextInput:
                 text_x = self.rect.x + 12 - (txt_surf.get_width() - avail_w)
             else:
                 text_x = self.rect.x + 12
-            
+
         text_y = self.rect.y + (self.rect.height - txt_surf.get_height()) // 2
         surface.blit(txt_surf, (text_x, text_y))
-        
+
         # Curseur clignotant
         if self.is_active:
             cursor_visible = (pygame.time.get_ticks() // 450) % 2 == 0
@@ -182,7 +191,7 @@ class TextInput:
                 cy1 = text_y + 2
                 cy2 = text_y + txt_surf.get_height() - 2
                 pygame.draw.line(surface, COLOR_INDIGO, (cx, cy1), (cx, cy2), 2)
-                
+
         surface.set_clip(prev_clip)
 
 class PieceAnimation(PieceCinematicAnimation):
@@ -199,7 +208,7 @@ class UI:
         self.lifted_shadow_surface = None
         self.theme_key = DEFAULT_THEME
         self.theme = THEMES[self.theme_key]
-        
+
         # Dimensions dynamiques (Responsive)
         self.board_x = BOARD_X
         self.board_y = BOARD_Y
@@ -211,14 +220,14 @@ class UI:
 
         self.create_piece_shadow()
         self.load_assets()
-        
-        self.coord_font = pygame.font.SysFont('Segoe UI', 14, bold=True)
-        self.eval_font = pygame.font.SysFont('Segoe UI', 11, bold=True)
-        self.card_font_name = pygame.font.SysFont('Segoe UI', 13, bold=True)
-        self.card_font_badge = pygame.font.SysFont('Segoe UI', 10, bold=True)
-        self.card_font_diff = pygame.font.SysFont('Segoe UI', 12, bold=True)
+
+        self.coord_font = pygame.font.SysFont('DejaVu Sans', 14, bold=True)
+        self.eval_font = pygame.font.SysFont('DejaVu Sans', 11, bold=True)
+        self.card_font_name = pygame.font.SysFont('DejaVu Sans', 13, bold=True)
+        self.card_font_badge = pygame.font.SysFont('DejaVu Sans', 10, bold=True)
+        self.card_font_diff = pygame.font.SysFont('DejaVu Sans', 12, bold=True)
         self.card_font_led = pygame.font.SysFont('Courier New', 14, bold=True)
-        
+
         self.animation = None
         self.ripples = []
 
@@ -294,11 +303,11 @@ class UI:
         for p, raw in self.raw_images.items():
             self._scale_piece(p, raw)
 
-    def start_animation(self, from_sq, to_sq, piece_key, secondary=None, captured=None, 
+    def start_animation(self, from_sq, to_sq, piece_key, secondary=None, captured=None,
                         duration_ms=280, is_capture=False, is_check=False):
         """Démarre le glissement cinématique slow-motion (280ms)."""
         self.animation = PieceCinematicAnimation(
-            from_sq, to_sq, piece_key, pygame.time.get_ticks(), 
+            from_sq, to_sq, piece_key, pygame.time.get_ticks(),
             duration_ms=duration_ms, secondary=secondary, captured=captured,
             is_capture=is_capture, is_check=is_check
         )
@@ -406,10 +415,10 @@ class UI:
     def draw_annotations(self, circles, arrows, preview_arrow=None, flipped=False, draw_circles=True, draw_arrows=True):
         if not circles and not arrows and not preview_arrow:
             return
-            
+
         annot_surf = pygame.Surface(self.screen.get_size(), pygame.SRCALPHA)
         sq_s = self.square_size
-        
+
         # 1. Cercles tactiques sous les pièces
         if draw_circles and circles:
             for sq in circles:
@@ -434,145 +443,145 @@ class UI:
                 dist = math.hypot(dx, dy)
                 if dist < 8:
                     continue
-                    
+
                 angle = math.atan2(dy, dx)
                 ux = math.cos(angle)
                 uy = math.sin(angle)
                 nx = -uy
                 ny = ux
-                
+
                 head_len = min(22.0, dist * 0.45)
                 head_half_w = 14.0
-                
+
                 tip = (x2 - ux * 6.0, y2 - uy * 6.0)
                 base_cx = tip[0] - ux * head_len
                 base_cy = tip[1] - uy * head_len
-                
+
                 h_left = (base_cx + nx * head_half_w, base_cy + ny * head_half_w)
                 h_right = (base_cx - nx * head_half_w, base_cy - ny * head_half_w)
-                
+
                 shaft_half_w = 6.0
                 start_cx = x1 + ux * 8.0
                 start_cy = y1 + uy * 8.0
-                
+
                 s_left_start = (start_cx + nx * shaft_half_w, start_cy + ny * shaft_half_w)
                 s_right_start = (start_cx - nx * shaft_half_w, start_cy - ny * shaft_half_w)
                 s_left_end = (base_cx + nx * shaft_half_w, base_cy + ny * shaft_half_w)
                 s_right_end = (base_cx - nx * shaft_half_w, base_cy - ny * shaft_half_w)
-                
+
                 poly = [s_left_start, s_left_end, h_left, tip, h_right, s_right_end, s_right_start]
                 pygame.draw.polygon(annot_surf, COLOR_ARROW, poly)
                 pygame.draw.polygon(annot_surf, COLOR_ARROW_BORDER, poly, width=2)
-            
+
         self.screen.blit(annot_surf, (0, 0))
 
     def draw_eval_bar(self, x, y, width, height, eval_ratio, eval_text, flipped=False):
         container = pygame.Rect(x, y, width, height)
-        
+
         # Ombre
         sh_rect = pygame.Rect(x + 2, y + 2, width, height)
         sh_surf = pygame.Surface((width, height), pygame.SRCALPHA)
         pygame.draw.rect(sh_surf, (15, 23, 42, 35), (0, 0, width, height), border_radius=6)
         self.screen.blit(sh_surf, (sh_rect.x, sh_rect.y))
 
-        pygame.draw.rect(self.screen, pygame.Color("#FFFFFF"), container, border_radius=6)
-        
+        pygame.draw.rect(self.screen, COLOR_BG_CARD, container, border_radius=6)
+
         ratio = max(0.02, min(0.98, eval_ratio))
-        
+
         if not flipped:
             white_h = int(height * ratio)
             black_h = height - white_h
-            
+
             if black_h > 0:
                 b_rect = pygame.Rect(x, y, width, black_h)
-                pygame.draw.rect(self.screen, pygame.Color("#1E293B"), b_rect, 
+                pygame.draw.rect(self.screen, pygame.Color("#36433C"), b_rect,
                                  border_top_left_radius=6, border_top_right_radius=6)
             if white_h > 0:
                 w_rect = pygame.Rect(x, y + black_h, width, white_h)
-                pygame.draw.rect(self.screen, pygame.Color("#F8FAFC"), w_rect, 
+                pygame.draw.rect(self.screen, pygame.Color("#FFFEFA"), w_rect,
                                  border_bottom_left_radius=6, border_bottom_right_radius=6)
             split_y = y + black_h
         else:
             white_h = int(height * ratio)
             black_h = height - white_h
-            
+
             if white_h > 0:
                 w_rect = pygame.Rect(x, y, width, white_h)
-                pygame.draw.rect(self.screen, pygame.Color("#F8FAFC"), w_rect, 
+                pygame.draw.rect(self.screen, pygame.Color("#FFFEFA"), w_rect,
                                  border_top_left_radius=6, border_top_right_radius=6)
             if black_h > 0:
                 b_rect = pygame.Rect(x, y + white_h, width, black_h)
-                pygame.draw.rect(self.screen, pygame.Color("#1E293B"), b_rect, 
+                pygame.draw.rect(self.screen, pygame.Color("#36433C"), b_rect,
                                  border_bottom_left_radius=6, border_bottom_right_radius=6)
             split_y = y + white_h
 
         pygame.draw.line(self.screen, COLOR_GOLD, (x, split_y), (x + width - 1, split_y), 2)
         pygame.draw.rect(self.screen, COLOR_BORDER, container, width=2, border_radius=6)
-        
+
         # Pastille de score au-dessus de la barre
         if eval_text:
             pill_w = max(38, self.eval_font.size(eval_text)[0] + 10)
             pill_h = 20
             pill_x = x + (width - pill_w) // 2
             pill_y = y - 24
-            
+
             pill_rect = pygame.Rect(pill_x, pill_y, pill_w, pill_h)
-            pygame.draw.rect(self.screen, pygame.Color("#FFFFFF"), pill_rect, border_radius=5)
+            pygame.draw.rect(self.screen, COLOR_BG_CARD, pill_rect, border_radius=5)
             pygame.draw.rect(self.screen, COLOR_BORDER_STRONG, pill_rect, width=1, border_radius=5)
-            
-            txt_col = pygame.Color("#0F172A")
+
+            txt_col = COLOR_TEXT_MAIN
             if "M" in eval_text:
                 txt_col = COLOR_GOLD_HOVER
             txt_surf = self.eval_font.render(eval_text, True, txt_col)
-            self.screen.blit(txt_surf, (pill_rect.centerx - txt_surf.get_width()//2, 
+            self.screen.blit(txt_surf, (pill_rect.centerx - txt_surf.get_width()//2,
                                         pill_rect.centery - txt_surf.get_height()//2))
 
-    def draw_player_card(self, rect, name, rating_str, avatar_type, is_active_turn, 
+    def draw_player_card(self, rect, name, rating_str, avatar_type, is_active_turn,
                          clock_str, clock_warn=False, captured_pieces=None, material_diff=0, is_top=False,
                          captures_color='b'):
         card_rect = pygame.Rect(rect)
-        
+
         # Ombre portée de carte
         sh_surf = pygame.Surface((card_rect.width, card_rect.height), pygame.SRCALPHA)
         pygame.draw.rect(sh_surf, (15, 23, 42, 18), (0, 0, card_rect.width, card_rect.height), border_radius=8)
         self.screen.blit(sh_surf, (card_rect.x, card_rect.y + 2))
 
         # Carte blanche Material 3
-        bg_col = pygame.Color("#FFFFFF") if not is_active_turn else pygame.Color("#F0FDF4")
+        bg_col = COLOR_BG_CARD if not is_active_turn else pygame.Color("#E8F0E7")
         pygame.draw.rect(self.screen, bg_col, card_rect, border_radius=8)
-        
+
         border_col = COLOR_EMERALD if is_active_turn else COLOR_BORDER
         border_w = 2 if is_active_turn else 1
         pygame.draw.rect(self.screen, border_col, card_rect, width=border_w, border_radius=8)
-        
+
         # 1. Cercle Avatar
         av_x = card_rect.x + 10
         av_y = card_rect.centery
         av_rad = 12
-        av_bg = pygame.Color("#E0E7FF") if avatar_type != "bot" else pygame.Color("#FEF3C7")
+        av_bg = pygame.Color("#E8F0E7") if avatar_type != "bot" else pygame.Color("#F4EADB")
         pygame.draw.circle(self.screen, av_bg, (av_x + av_rad, av_y), av_rad)
         pygame.draw.circle(self.screen, COLOR_EMERALD if is_active_turn else COLOR_BORDER_STRONG, (av_x + av_rad, av_y), av_rad, width=1)
-        
-        f_av = pygame.font.SysFont('Segoe UI', 11, bold=True)
+
+        f_av = pygame.font.SysFont('DejaVu Sans', 11, bold=True)
         av_sym = "IA" if avatar_type == "bot" else ("P2" if is_top else "P1")
         av_txt_col = COLOR_GOLD_HOVER if avatar_type == "bot" else COLOR_INDIGO
         av_txt = f_av.render(av_sym, True, av_txt_col)
         self.screen.blit(av_txt, (av_x + av_rad - av_txt.get_width()//2, av_y - av_txt.get_height()//2))
-        
+
         # 2. Nom du joueur et badge Elo
         text_x = av_x + av_rad * 2 + 8
         name_surf = self.card_font_name.render(name, True, COLOR_TEXT_MAIN)
         self.screen.blit(name_surf, (text_x, card_rect.centery - name_surf.get_height()//2))
         text_x += name_surf.get_width() + 8
-        
+
         if rating_str:
-            badge_surf = self.card_font_badge.render(rating_str, True, COLOR_GOLD_HOVER)
+            badge_surf = self.card_font_badge.render(rating_str, True, COLOR_GOLD)
             badge_rect = pygame.Rect(text_x, card_rect.centery - 9, badge_surf.get_width() + 8, 18)
-            pygame.draw.rect(self.screen, pygame.Color("#FEF3C7"), badge_rect, border_radius=4)
-            pygame.draw.rect(self.screen, pygame.Color("#FDE68A"), badge_rect, width=1, border_radius=4)
+            pygame.draw.rect(self.screen, pygame.Color("#F4EADB"), badge_rect, border_radius=4)
+            pygame.draw.rect(self.screen, COLOR_GOLD_HOVER, badge_rect, width=1, border_radius=4)
             self.screen.blit(badge_surf, (badge_rect.x + 4, badge_rect.y + 2))
             text_x += badge_rect.w + 12
-            
+
         # 4. Horloge numérique
         clock_w = 84
         clock_rect = pygame.Rect(card_rect.right - clock_w - 8, card_rect.centery - 13, clock_w, 26)
@@ -595,7 +604,7 @@ class UI:
                             self.screen.blit(img, (cap_x, card_rect.centery - 9))
                             cap_x += 9
                         if cnt > 3 and cap_x + 16 <= max_cap_x:
-                            f_cnt = pygame.font.SysFont('Segoe UI', 10, bold=True)
+                            f_cnt = pygame.font.SysFont('DejaVu Sans', 10, bold=True)
                             c_s = f_cnt.render(f"x{cnt}", True, COLOR_TEXT_MUTED)
                             self.screen.blit(c_s, (cap_x + 1, card_rect.centery - 6))
                             cap_x += c_s.get_width() + 4
@@ -609,12 +618,12 @@ class UI:
         pygame.draw.rect(self.screen, COLOR_LED_BG, clock_rect, border_radius=5)
         c_border = COLOR_EMERALD if is_active_turn else COLOR_LED_BORDER
         pygame.draw.rect(self.screen, c_border, clock_rect, width=1, border_radius=5)
-        
+
         c_col = COLOR_LED_TEXT_WARN if clock_warn else (COLOR_LED_TEXT_ACTIVE if is_active_turn else COLOR_LED_TEXT_IDLE)
         clk_surf = self.card_font_led.render(clock_str, True, c_col)
-        self.screen.blit(clk_surf, (clock_rect.centerx - clk_surf.get_width()//2, 
+        self.screen.blit(clk_surf, (clock_rect.centerx - clk_surf.get_width()//2,
                                     clock_rect.centery - clk_surf.get_height()//2))
-        
+
         # 5. Point lumineux pulsation tour actif
         if is_active_turn:
             dot_rad = 4
@@ -638,7 +647,7 @@ class UI:
             pulse = (math.sin(now / 220.0) + 1.0) / 2.0
             glow_alpha = int(75 + pulse * 45)
             border_alpha = int(170 + pulse * 60)
-            
+
             for th_sq in threatened_squares:
                 sx, sy = self.square_to_screen(th_sq, flipped)
                 glow_surf = pygame.Surface((sq_s, sq_s), pygame.SRCALPHA)
@@ -646,11 +655,11 @@ class UI:
                 rad = sq_s // 2
                 pygame.draw.circle(glow_surf, (255, 60, 60, int(glow_alpha * 0.7)), (rad, rad), rad - 6)
                 self.screen.blit(glow_surf, (sx, sy))
-                
+
                 border_surf = pygame.Surface((sq_s, sq_s), pygame.SRCALPHA)
-                pygame.draw.rect(border_surf, (239, 68, 68, border_alpha), 
+                pygame.draw.rect(border_surf, (239, 68, 68, border_alpha),
                                  (0, 0, sq_s, sq_s), width=3, border_radius=4)
-                
+
                 c_len = 8
                 col = (255, 90, 90, border_alpha)
                 pygame.draw.line(border_surf, col, (2, 2), (2 + c_len, 2), 2)
@@ -686,7 +695,7 @@ class UI:
             s = pygame.Surface((sq_s, sq_s), pygame.SRCALPHA)
             s.fill(pygame.Color(79, 70, 229, 110))
             self.screen.blit(s, (sx, sy))
-            pygame.draw.rect(self.screen, COLOR_INDIGO, 
+            pygame.draw.rect(self.screen, COLOR_INDIGO,
                              (sx, sy, sq_s, sq_s), width=3)
 
             # Points indicateurs de déplacements possibles
@@ -694,13 +703,13 @@ class UI:
                 if move.from_square == selected_square:
                     tx, ty = self.square_to_screen(move.to_square, flipped)
                     is_capture = board.is_capture(move)
-                    
+
                     dot_surf = pygame.Surface((sq_s, sq_s), pygame.SRCALPHA)
                     if is_capture:
-                        pygame.draw.circle(dot_surf, (239, 68, 68, 180), (sq_s//2, sq_s//2), 
+                        pygame.draw.circle(dot_surf, (239, 68, 68, 180), (sq_s//2, sq_s//2),
                                            sq_s//2 - 6, width=4)
                     else:
-                        pygame.draw.circle(dot_surf, COLOR_MOVE_DOT, (sq_s//2, sq_s//2), 
+                        pygame.draw.circle(dot_surf, COLOR_MOVE_DOT, (sq_s//2, sq_s//2),
                                            sq_s//7)
                     self.screen.blit(dot_surf, (tx, ty))
 
@@ -730,14 +739,14 @@ class UI:
                 key = f"{color}{piece.symbol().upper()}"
                 if key in self.images:
                     sx, sy = self.square_to_screen(square, flipped)
-                    
+
                     # Si la pièce est sélectionnée mais non encore glissée (soulèvement 1.15x)
                     if square == selected_square and dragged_pos is None:
                         # Ombre soulevée
                         sh_x = sx + (sq_s - self.lifted_shadow_surface.get_width()) // 2
                         sh_y = sy + sq_s - self.lifted_shadow_surface.get_height() + 2
                         self.screen.blit(self.lifted_shadow_surface, (sh_x, sh_y))
-                        
+
                         img = self.images[key]
                         # Zoom 1.15x
                         scaled_w = int(img.get_width() * 1.15)
@@ -751,7 +760,7 @@ class UI:
                         sh_x = sx + (sq_s - self.shadow_surface.get_width()) // 2
                         sh_y = sy + sq_s - self.shadow_surface.get_height() - 4
                         self.screen.blit(self.shadow_surface, (sh_x, sh_y))
-                        
+
                         img = self.images[key]
                         px = sx + (sq_s - img.get_width()) // 2
                         py = sy + (sq_s - img.get_height()) // 2 - 2
@@ -766,7 +775,7 @@ class UI:
                 c_sh_x = csx + (sq_s - self.shadow_surface.get_width()) // 2
                 c_sh_y = csy + sq_s - self.shadow_surface.get_height() - 4
                 self.screen.blit(self.shadow_surface, (c_sh_x, c_sh_y))
-                
+
                 c_px = csx + (sq_s - c_img.get_width()) // 2
                 c_py = csy + (sq_s - c_img.get_height()) // 2 - 2
                 self.screen.blit(c_img, (c_px, c_py))
@@ -776,12 +785,12 @@ class UI:
             ease = self.animation.progress(now)
             lift = self.animation.lift_height(now)
             scale = self.animation.scale_factor(now)
-            
+
             fx, fy = self.square_to_screen(self.animation.from_sq, flipped)
             tx, ty = self.square_to_screen(self.animation.to_sq, flipped)
             cur_x = fx + (tx - fx) * ease
             cur_y = fy + (ty - fy) * ease + lift
-            
+
             img = self.images.get(self.animation.piece_key)
             if img:
                 # Ombre au sol qui suit le déplacement X/Y mais reste sur le plateau (sans lift)
@@ -789,7 +798,7 @@ class UI:
                 sh_x = cur_x + (sq_s - self.lifted_shadow_surface.get_width()) // 2
                 sh_y = ground_y + sq_s - self.lifted_shadow_surface.get_height() - 2
                 self.screen.blit(self.lifted_shadow_surface, (sh_x, sh_y))
-                
+
                 # Image avec léger grossissement dynamique
                 if abs(scale - 1.0) > 0.02:
                     sw = int(img.get_width() * scale)
@@ -802,7 +811,7 @@ class UI:
                 px = cur_x + (sq_s - sw) // 2
                 py = cur_y + (sq_s - sh) // 2 - 2
                 self.screen.blit(cur_img, (px, py))
-                
+
             # Pièce secondaire (Tour lors du roque)
             if self.animation.secondary:
                 s_from, s_to, s_key = self.animation.secondary
@@ -815,7 +824,7 @@ class UI:
                     sh_x = s_cur_x + (sq_s - self.shadow_surface.get_width()) // 2
                     sh_y = s_cur_y + sq_s - self.shadow_surface.get_height() - 4
                     self.screen.blit(self.shadow_surface, (sh_x, sh_y))
-                    
+
                     px = s_cur_x + (sq_s - s_img.get_width()) // 2
                     py = s_cur_y + (sq_s - s_img.get_height()) // 2 - 2
                     self.screen.blit(s_img, (px, py))
@@ -833,8 +842,103 @@ class UI:
                     dw = int(img.get_width() * 1.15)
                     dh = int(img.get_height() * 1.15)
                     drag_img = pygame.transform.smoothscale(img, (dw, dh))
-                    
+
                     # Ombre flottante décalée
-                    self.screen.blit(self.lifted_shadow_surface, 
+                    self.screen.blit(self.lifted_shadow_surface,
                                      (mx - self.lifted_shadow_surface.get_width()//2, my + 26))
                     self.screen.blit(drag_img, (mx - dw//2, my - dh//2 - 12))
+
+    def draw_hover_reticle(self, surface, square, is_capture=False, flipped=False, pulse_factor=1.0, color=None, radius=None):
+        """Délègue le rendu du réticule magnétique tactile avec les dimensions actuelles de l'échiquier."""
+        return draw_hover_reticle(
+            surface, square, is_capture=is_capture, flipped=flipped,
+            pulse_factor=pulse_factor, color=color, radius=radius,
+            board_x=self.board_x, board_y=self.board_y, square_size=self.square_size
+        )
+
+
+def draw_hover_reticle(surface, square, is_capture=False, flipped=False, pulse_factor=1.0, color=None, radius=None, board_x=None, board_y=None, square_size=None):
+    """
+    Rendu tactile du réticule magnétique de visée pour le survol en drag-and-drop :
+    - 4 équerres tactiques ⌜ ⌝ ⌞ ⌟ aux 4 coins de la case (longueur ~10px, épaisseur 3px)
+      avec COLOR_EMERALD pour déplacement normal, COLOR_ROSE pour capture.
+    - Anneau magnétique doux et circulaire au centre avec fondu alpha.
+    """
+    if isinstance(square, pygame.Rect):
+        rect = square
+    else:
+        bx = BOARD_X if board_x is None else board_x
+        by = BOARD_Y if board_y is None else board_y
+        sq_s = SQUARE_SIZE if square_size is None else square_size
+        c = chess.square_file(square)
+        r = chess.square_rank(square)
+        if not flipped:
+            r = 7 - r
+        else:
+            c = 7 - c
+        rect = pygame.Rect(bx + c * sq_s, by + r * sq_s, sq_s, sq_s)
+
+    if color is not None:
+        main_color = color
+    else:
+        main_color = COLOR_CAPTURE_RETICLE if is_capture else COLOR_MOVE_RETICLE
+
+    if isinstance(main_color, pygame.Color):
+        r_c, g_c, b_c = main_color.r, main_color.g, main_color.b
+    elif len(main_color) >= 3:
+        r_c, g_c, b_c = int(main_color[0]), int(main_color[1]), int(main_color[2])
+    else:
+        r_c, g_c, b_c = (16, 185, 129)
+
+    pulse = max(0.5, min(1.5, float(pulse_factor)))
+
+    pad = 8
+    overlay = pygame.Surface((rect.width + pad * 2, rect.height + pad * 2), pygame.SRCALPHA)
+    ox, oy = pad, pad
+    center = (ox + rect.width // 2, oy + rect.height // 2)
+
+    # 1. Anneau magnétique doux et lueur centrale
+    base_radius = radius if radius is not None else int((rect.width // 2 - 8) * pulse)
+    base_radius = max(4, min(rect.width // 2, base_radius))
+
+    halo_alpha = int(35 * pulse)
+    halo_alpha = max(10, min(80, halo_alpha))
+    pygame.draw.circle(overlay, (r_c, g_c, b_c, halo_alpha), center, base_radius + 4, width=5)
+
+    ring_alpha = int(190 * min(1.0, pulse))
+    ring_alpha = max(100, min(255, ring_alpha))
+    pygame.draw.circle(overlay, (r_c, g_c, b_c, ring_alpha), center, base_radius, width=2)
+
+    center_alpha = int(45 * pulse)
+    center_alpha = max(10, min(70, center_alpha))
+    pygame.draw.circle(overlay, (r_c, g_c, b_c, center_alpha), center, max(2, int(base_radius * 0.45)))
+
+    # 2. Les 4 équerres tactiques de coin ⌜ ⌝ ⌞ ⌟ (longueur ~10px, épaisseur 3px)
+    arm_len = 10
+    line_w = 3
+    bracket_alpha = 240
+    b_col = (r_c, g_c, b_c, bracket_alpha)
+    inset = 1
+
+    left = ox + inset
+    right = ox + rect.width - 1 - inset
+    top = oy + inset
+    bottom = oy + rect.height - 1 - inset
+
+    # Coin Supérieur Gauche ⌜
+    pygame.draw.line(overlay, b_col, (left, top), (left + arm_len, top), width=line_w)
+    pygame.draw.line(overlay, b_col, (left, top), (left, top + arm_len), width=line_w)
+
+    # Coin Supérieur Droit ⌝
+    pygame.draw.line(overlay, b_col, (right, top), (right - arm_len, top), width=line_w)
+    pygame.draw.line(overlay, b_col, (right, top), (right, top + arm_len), width=line_w)
+
+    # Coin Inférieur Gauche ⌞
+    pygame.draw.line(overlay, b_col, (left, bottom), (left + arm_len, bottom), width=line_w)
+    pygame.draw.line(overlay, b_col, (left, bottom), (left, bottom - arm_len), width=line_w)
+
+    # Coin Inférieur Droit ⌟
+    pygame.draw.line(overlay, b_col, (right, bottom), (right - arm_len, bottom), width=line_w)
+    pygame.draw.line(overlay, b_col, (right, bottom), (right, bottom - arm_len), width=line_w)
+
+    surface.blit(overlay, (rect.x - pad, rect.y - pad))

@@ -243,3 +243,45 @@ class ConfettiParticleSystem:
             return
         for p in self.particles:
             p.draw(surface)
+
+
+class ModalTransition:
+    """
+    Gère la transition d'ouverture fluide d'un dialogue modal (~220ms).
+    Fournit l'échelle dynamique avec rebond élastique (ease_out_back),
+    l'assombrissement progressif du voile (ease_out_cubic),
+    et l'opacité du contenu.
+    """
+    def __init__(self, start_time: int | None = None, duration_ms: int = 220):
+        self.start_time = pygame.time.get_ticks() if start_time is None else start_time
+        self.duration_ms = max(1, duration_ms)
+
+    def progress(self, current_time: int | None = None) -> float:
+        now = pygame.time.get_ticks() if current_time is None else current_time
+        elapsed = now - self.start_time
+        return max(0.0, min(1.0, elapsed / float(self.duration_ms)))
+
+    def is_finished(self, current_time: int | None = None) -> bool:
+        now = pygame.time.get_ticks() if current_time is None else current_time
+        return (now - self.start_time) >= self.duration_ms
+
+    def get_scale(self, current_time: int | None = None) -> float:
+        """
+        Interpole l'échelle d'ouverture de 0.90 à 1.0 via ease_out_back(progress, overshoot=1.12).
+        """
+        p = self.progress(current_time)
+        return 0.90 + 0.10 * ease_out_back(p, overshoot=1.12)
+
+    def get_dim_alpha(self, current_time: int | None = None) -> int:
+        """
+        Interpole l'opacité d'assombrissement du voile d'arrière-plan de 0 à 130 via ease_out_cubic(progress).
+        """
+        p = self.progress(current_time)
+        return int(130 * ease_out_cubic(p))
+
+    def get_content_alpha(self, current_time: int | None = None) -> int:
+        """
+        Interpole l'opacité du contenu modal de 0 à 255 via ease_out_cubic(progress).
+        """
+        p = self.progress(current_time)
+        return int(255 * ease_out_cubic(p))

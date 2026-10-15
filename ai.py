@@ -6,13 +6,13 @@ import os
 import sys
 import random
 import time
-from constants import resource_path, BASE_DIR
+from constants import resource_path, BASE_DIR, BOT_PERSONAS
 
 DIFFICULTY_PRESETS = {
-    1: {"name": "Débutant (800 Elo)", "skill": 1, "time": 0.3, "depth": 4},
-    2: {"name": "Intermédiaire (1500 Elo)", "skill": 7, "time": 0.6, "depth": 8},
-    3: {"name": "Avancé (2200 Elo)", "skill": 14, "time": 1.0, "depth": 14},
-    4: {"name": "Grand Maître - Monstre (3600+ Elo)", "skill": 20, "time": 1.8, "depth": 22}
+    1: {"name": "Débutant (800 Elo)", "skill": 1, "time": 0.3, "depth": 4, "persona_id": "lucas", "elo": 800},
+    2: {"name": "Intermédiaire (1400 Elo)", "skill": 10, "time": 0.8, "depth": 10, "persona_id": "eleonore", "elo": 1400},
+    3: {"name": "Avancé (2100 Elo)", "skill": 18, "time": 1.2, "depth": 16, "persona_id": "alexandre", "elo": 2100},
+    4: {"name": "Grand Maître - Monstre (3200+ Elo)", "skill": 20, "time": 1.8, "depth": 22, "persona_id": "monster", "elo": 3200}
 }
 
 def compute_thinking_pace(board, difficulty=4):
@@ -86,34 +86,181 @@ class ChessAI:
         self.engine_name = "Stockfish 19" if self.engine_path else "Moteur Intégré"
         self.is_monster = bool(self.engine_path)
         self.engine_lock = threading.Lock()
+        self._current_cancel_event = None
+        self._current_task_thread = None
+        self.current_elo = 3200
+        self.current_persona_id = "monster"
+        self.current_config = None
 
-    def set_difficulty(self, diff_level):
+        # Calibrate initial Elo configuration matching difficulty
+        if self.difficulty in DIFFICULTY_PRESETS:
+            preset = DIFFICULTY_PRESETS[self.difficulty]
+            self.configure_elo(preset["elo"], persona_id=preset.get("persona_id"))
+        else:
+            self.configure_elo(3200, persona_id="monster")
+
+    def configure_elo(self, elo: int, persona_id: str | None = None) -> dict:
+        """
+        Calibrate Stockfish 19 according to the official UCI protocol:
+        - Stockfish 19 UCI_Elo requires min 1320 and max 3190.
+        - For Elo >= 3200: configure {"UCI_LimitStrength": False, "Skill Level": 20}.
+        - For 1320 <= Elo < 3200: configure {"UCI_LimitStrength": True, "UCI_Elo": elo}.
+        - For Elo < 1320 (e.g. 500-1319): clamp UCI_Elo to 1320 with {"UCI_LimitStrength": True, "UCI_Elo": 1320},
+          and scale "Skill Level" (0 to 5) with limited search depth (4-5) to genuinely reproduce
+          human beginner play without crashing.
+        """
+        persona = None
+        if persona_id and persona_id in BOT_PERSONAS:
+            persona = BOT_PERSONAS[persona_id]
+        elif persona_id is None:
+            # Check if elo matches a registered persona
+            for pid, pdata in BOT_PERSONAS.items():
+                if pdata["elo"] == elo:
+                    persona = pdata
+                    persona_id = pid
+                    break
+
+        if persona is not None:
+            elo = persona["elo"]
+            name = persona["name"]
+            depth = persona["depth"]
+            search_time = persona["time"]
+            skill_level = persona.get("skill_level", 20)
+            if persona["uci_limit_strength"]:
+                uci_config = {
+                    "UCI_LimitStrength": True,
+                    "UCI_Elo": persona["uci_elo"]
+                }
+                if persona["elo"] < 1320 or "skill_level" in persona:
+                    uci_config["Skill Level"] = skill_level
+            else:
+                uci_config = {
+                    "UCI_LimitStrength": False,
+                    "Skill Level": 20
+                }
+            diff_map = {"lucas": 1, "eleonore": 2, "alexandre": 3, "monster": 4}
+            diff_level = diff_map.get(persona_id, 4)
+        else:
+            # Continuous Elo calibration (e.g. 500 to 3200+)
+            elo = int(elo)
+            if elo >= 3200:
+                uci_config = {"UCI_LimitStrength": False, "Skill Level": 20}
+                skill_level = 20
+                depth = 22
+                search_time = 1.8
+                diff_level = 4
+                name = f"Niveau {elo} Elo"
+            elif 1320 <= elo < 3200:
+                clamped_uci_elo = min(3190, max(1320, elo))
+                uci_config = {"UCI_LimitStrength": True, "UCI_Elo": clamped_uci_elo}
+                if elo <= 2100:
+                    fraction = (elo - 1320) / (2100 - 1320) if elo > 1320 else 0.0
+                    skill_level = int(round(10 + fraction * (18 - 10)))
+                else:
+                    fraction = (elo - 2100) / (3190 - 2100) if elo < 3190 else 1.0
+                    skill_level = int(round(18 + fraction * (20 - 18)))
+                depth = int(round(10 + ((elo - 1320) / (3200 - 1320)) * (22 - 10)))
+                search_time = round(0.8 + ((elo - 1320) / (3200 - 1320)) * (1.8 - 0.8), 2)
+                diff_level = 2 if elo < 1800 else 3
+                name = f"Niveau {elo} Elo"
+            else:
+                # Elo < 1320: clamp UCI_Elo to 1320, scale Skill Level (0 to 5), depth (4 to 5)
+                fraction = max(0.0, min(1.0, (elo - 500) / (1320 - 500)))
+                skill_level = max(0, min(5, int(round(fraction * 5))))
+                uci_config = {
+                    "UCI_LimitStrength": True,
+                    "UCI_Elo": 1320,
+                    "Skill Level": skill_level
+                }
+                depth = 4 if elo < 1000 else 5
+                search_time = round(0.3 + fraction * (0.6 - 0.3), 2)
+                diff_level = 1
+                name = f"Niveau {elo} Elo"
+
+        config_dict = {
+            "elo": elo,
+            "persona_id": persona_id,
+            "name": name,
+            "UCI_LimitStrength": uci_config.get("UCI_LimitStrength", False),
+            "Skill Level": uci_config.get("Skill Level", skill_level),
+            "depth": depth,
+            "time": search_time,
+            "skill_level": skill_level,
+            "uci_options": uci_config,
+        }
+        if "UCI_Elo" in uci_config:
+            config_dict["UCI_Elo"] = uci_config["UCI_Elo"]
+
+        self.current_elo = elo
+        self.current_persona_id = persona_id
         self.difficulty = diff_level
-        preset = DIFFICULTY_PRESETS.get(diff_level, DIFFICULTY_PRESETS[4])
+        self.current_config = config_dict
+
+        if self.engine_path:
+            self.engine_name = f"Stockfish 19 ({name})"
+        else:
+            self.engine_name = f"Moteur Python ({name})"
+
         if self.engine:
             try:
-                self.engine.configure({"Skill Level": preset["skill"]})
-            except Exception:
-                pass
+                with self.engine_lock:
+                    self.engine.configure(uci_config)
+            except Exception as e:
+                print(f"Stockfish configure failed: {e}")
+
+        return self.current_config
+
+    def set_difficulty(self, diff_level):
+        if isinstance(diff_level, str) and diff_level in BOT_PERSONAS:
+            self.configure_elo(BOT_PERSONAS[diff_level]["elo"], persona_id=diff_level)
+        elif isinstance(diff_level, int) and diff_level in [1, 2, 3, 4]:
+            p_ids = ["lucas", "eleonore", "alexandre", "monster"]
+            p_id = p_ids[diff_level - 1]
+            self.configure_elo(BOT_PERSONAS[p_id]["elo"], persona_id=p_id)
+        elif isinstance(diff_level, int) and diff_level >= 500:
+            self.configure_elo(diff_level)
+        else:
+            self.difficulty = diff_level
+            preset = DIFFICULTY_PRESETS.get(diff_level, DIFFICULTY_PRESETS[4])
+            if self.engine:
+                try:
+                    with self.engine_lock:
+                        self.engine.configure({"Skill Level": preset["skill"]})
+                except Exception:
+                    pass
 
     def start(self, diff_level=None):
         self.close()  # Cleanly quit any existing subprocess before launching new one
-        if diff_level:
-            self.difficulty = diff_level
-        preset = DIFFICULTY_PRESETS.get(self.difficulty, DIFFICULTY_PRESETS[4])
-        
+        if diff_level is not None:
+            if isinstance(diff_level, str) and diff_level in BOT_PERSONAS:
+                self.configure_elo(BOT_PERSONAS[diff_level]["elo"], persona_id=diff_level)
+            elif isinstance(diff_level, int) and diff_level in [1, 2, 3, 4]:
+                p_ids = ["lucas", "eleonore", "alexandre", "monster"]
+                p_id = p_ids[diff_level - 1]
+                self.configure_elo(BOT_PERSONAS[p_id]["elo"], persona_id=p_id)
+            elif isinstance(diff_level, int) and diff_level >= 500:
+                self.configure_elo(diff_level)
+            else:
+                self.set_difficulty(diff_level)
+        elif self.current_config is None:
+            self.configure_elo(3200, persona_id="monster")
+
+        config = self.current_config or {}
+        uci_opts = config.get("uci_options", {"Skill Level": 20})
+        name = config.get("name", "Grand Maître - Monstre")
+
         if self.engine_path:
             try:
                 self.engine = chess.engine.SimpleEngine.popen_uci(self.engine_path)
-                self.engine.configure({"Skill Level": preset["skill"]})
-                self.engine_name = f"Stockfish 19 ({preset['name']})"
+                self.engine.configure(uci_opts)
+                self.engine_name = f"Stockfish 19 ({name})"
                 self.is_monster = True
                 return True
             except Exception as e:
                 print(f"Stockfish execution failed: {e}")
                 self.engine = None
 
-        self.engine_name = f"Moteur Python ({preset['name']})"
+        self.engine_name = f"Moteur Python ({name})"
         self.is_monster = False
         return True
 
@@ -123,8 +270,11 @@ class ChessAI:
                 if self.engine is None and self.engine_path:
                     try:
                         self.engine = chess.engine.SimpleEngine.popen_uci(self.engine_path)
-                        preset = DIFFICULTY_PRESETS.get(self.difficulty, DIFFICULTY_PRESETS[4])
-                        self.engine.configure({"Skill Level": preset["skill"]})
+                        if self.current_config and "uci_options" in self.current_config:
+                            self.engine.configure(self.current_config["uci_options"])
+                        else:
+                            preset = DIFFICULTY_PRESETS.get(self.difficulty, DIFFICULTY_PRESETS[4])
+                            self.engine.configure({"Skill Level": preset["skill"]})
                         self.is_monster = True
                     except Exception as e:
                         print(f"Stockfish execution failed: {e}")
@@ -195,24 +345,84 @@ class ChessAI:
             callback(cp, txt)
         threading.Thread(target=_run, daemon=True).start()
 
+    def cancel_ongoing_task(self):
+        """Cleanly cancels background thinking / hint calculation."""
+        if hasattr(self, "_current_cancel_event") and self._current_cancel_event is not None:
+            self._current_cancel_event.set()
+
+    def get_hint_async(self, board, callback):
+        """
+        Asynchronously analyzes the board using Stockfish 19 and calls callback(best_move, info).
+        Cleanly cancellable via cancel_ongoing_task().
+        """
+        self.cancel_ongoing_task()
+        cancel_evt = threading.Event()
+        self._current_cancel_event = cancel_evt
+        board_copy = board.copy()
+
+        def _compute_hint():
+            if cancel_evt.is_set():
+                return
+            best_move = None
+            info = {}
+            try:
+                if self.engine is None and self.engine_path:
+                    self.ensure_engine()
+                if self.engine:
+                    with self.engine_lock:
+                        if not cancel_evt.is_set():
+                            info = self.engine.analyse(
+                                board_copy,
+                                chess.engine.Limit(time=0.25, depth=12)
+                            )
+                            pv = info.get("pv", [None])
+                            best_move = pv[0] if pv else None
+                else:
+                    legal = list(board_copy.legal_moves)
+                    if legal:
+                        best_move = legal[0]
+                        info = {"pv": [best_move]}
+            except Exception as e:
+                print(f"Hint calculation error: {e}")
+                legal = list(board_copy.legal_moves)
+                if legal:
+                    best_move = legal[0]
+                    info = {"pv": [best_move]}
+
+            if not cancel_evt.is_set():
+                callback(best_move, info)
+
+        t = threading.Thread(target=_compute_hint, daemon=True)
+        self._current_task_thread = t
+        t.start()
+
     def get_move_async(self, board, callback):
+        self.cancel_ongoing_task()
+        cancel_evt = threading.Event()
+        self._current_cancel_event = cancel_evt
         board_copy = board.copy()
         preset = DIFFICULTY_PRESETS.get(self.difficulty, DIFFICULTY_PRESETS[4])
         thinking_delay = compute_thinking_pace(board_copy, self.difficulty)
         start_time = time.time()
-        
+
         def _compute():
+            if cancel_evt.is_set():
+                return
             move = None
             try:
                 if self.engine:
-                    engine_time = min(preset["time"], max(0.2, thinking_delay - 0.2))
-                    if self.difficulty == 4:
-                        limit = chess.engine.Limit(time=engine_time, depth=preset.get("depth", 22))
+                    config = self.current_config or {}
+                    search_time = config.get("time", preset["time"])
+                    search_depth = config.get("depth", preset.get("depth"))
+                    engine_time = min(search_time, max(0.2, thinking_delay - 0.2))
+                    if search_depth is not None:
+                        limit = chess.engine.Limit(time=engine_time, depth=search_depth)
                     else:
                         limit = chess.engine.Limit(time=engine_time)
                     with self.engine_lock:
-                        res = self.engine.play(board_copy, limit)
-                    move = res.move
+                        if not cancel_evt.is_set():
+                            res = self.engine.play(board_copy, limit)
+                            move = res.move
                 else:
                     # Fallback fast heuristic
                     legal = list(board_copy.legal_moves)
@@ -224,18 +434,25 @@ class ChessAI:
                 legal = list(board_copy.legal_moves)
                 if legal:
                     move = random.choice(legal)
-                    
+
+            if cancel_evt.is_set():
+                return
+
             # Enforce humanized thinking pace so AI moves are NEVER instantaneous
             elapsed = time.time() - start_time
             sleep_needed = thinking_delay - elapsed
             if sleep_needed > 0:
-                time.sleep(sleep_needed)
-                
-            callback(move)
-                    
-        threading.Thread(target=_compute, daemon=True).start()
+                cancel_evt.wait(timeout=sleep_needed)
+
+            if not cancel_evt.is_set():
+                callback(move)
+
+        t = threading.Thread(target=_compute, daemon=True)
+        self._current_task_thread = t
+        t.start()
 
     def close(self):
+        self.cancel_ongoing_task()
         with self.engine_lock:
             if self.engine:
                 try:
