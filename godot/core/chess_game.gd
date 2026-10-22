@@ -232,6 +232,10 @@ func move_to_uci(move: Dictionary) -> String:
 	return square_name(move.from) + square_name(move.to) + str(move.get("promotion", ""))
 
 
+func is_attacked(square: int, by_white: bool) -> bool:
+	return _is_attacked(square, by_white)
+
+
 func is_in_check(white: bool = white_to_move) -> bool:
 	var king_square := _king_square(white)
 	return king_square >= 0 and _is_attacked(king_square, not white)
@@ -328,10 +332,10 @@ func _pseudo_moves() -> Array:
 				if row == start_row and board[twice_row * 8 + file] == "":
 					result.append({"from": source, "to": twice_row * 8 + file})
 			for delta_file in [-1, 1]:
-				var target_file := file + delta_file
+				var target_file = file + delta_file
 				if not _inside(next_row, target_file):
 					continue
-				var target := next_row * 8 + target_file
+				var target = next_row * 8 + target_file
 				if (
 					board[target] != ""
 					and board[target].to_lower() != "k"
@@ -369,10 +373,10 @@ func _pseudo_moves() -> Array:
 					[Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
 				)
 			for direction in directions:
-				var target_row := row + direction.x
-				var target_file := file + direction.y
+				var target_row = row + direction.x
+				var target_file = file + direction.y
 				while _inside(target_row, target_file):
-					var target := target_row * 8 + target_file
+					var target = target_row * 8 + target_file
 					if board[target] == "":
 						result.append({"from": source, "to": target})
 					else:
@@ -394,7 +398,7 @@ func _san_for_move(move: Dictionary) -> String:
 	var target: int = move.to
 	var piece: String = board[source]
 	var kind := piece.to_lower()
-	var is_capture := board[target] != "" or move.get("en_passant", false)
+	var is_capture = board[target] != "" or move.get("en_passant", false)
 	var san := ""
 	if kind == "p":
 		if is_capture:
@@ -549,7 +553,7 @@ func _is_attacked(square: int, by_white: bool) -> bool:
 	var file := square % 8
 	var pawn_source_row := row + (1 if by_white else -1)
 	for df in [-1, 1]:
-		var pawn_file := file + df
+		var pawn_file = file + df
 		if _inside(pawn_source_row, pawn_file):
 			var pawn: String = board[pawn_source_row * 8 + pawn_file]
 			if pawn == ("P" if by_white else "p"):
@@ -564,16 +568,16 @@ func _is_attacked(square: int, by_white: bool) -> bool:
 		Vector2i(-1, 2),
 		Vector2i(-1, -2)
 	]:
-		var r := row + offset.x
-		var f := file + offset.y
+		var r = row + offset.x
+		var f = file + offset.y
 		if _inside(r, f) and board[r * 8 + f] == ("N" if by_white else "n"):
 			return true
 	for dr in [-1, 0, 1]:
 		for df in [-1, 0, 1]:
 			if dr == 0 and df == 0:
 				continue
-			var r := row + dr
-			var f := file + df
+			var r = row + dr
+			var f = file + df
 			if _inside(r, f) and board[r * 8 + f] == ("K" if by_white else "k"):
 				return true
 	for direction in [
@@ -586,8 +590,8 @@ func _is_attacked(square: int, by_white: bool) -> bool:
 		Vector2i(-1, 1),
 		Vector2i(-1, -1)
 	]:
-		var r := row + direction.x
-		var f := file + direction.y
+		var r = row + direction.x
+		var f = file + direction.y
 		var distance := 1
 		while _inside(r, f):
 			var piece: String = board[r * 8 + f]

@@ -31,3 +31,16 @@ venv/
 # OS artifacts
 .DS_Store
 Thumbs.db
+
+# Cache d import Godot
+godot/.godot/
+
+# Captures générées par godot/tools/capture_screens.gd
+docs/images/captures/
+
+# Builds et paquets d'export
+release/
+*.tar.gz
+*.zip
+
+.agents/

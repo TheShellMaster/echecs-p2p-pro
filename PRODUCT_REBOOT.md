@@ -5,7 +5,8 @@
 - Une partie contre l'IA doit fonctionner sans réseau et sans compte.
 - Deux appareils proches doivent pouvoir se trouver et jouer sans Internet.
 - L'application vise Windows, macOS, Linux, Android et iOS.
-- L'échiquier reste immédiatement lisible et agréable à jouer. Le relief et les animations servent les coups, ils ne les masquent pas.
+- Jeu d'échecs **ultra réaliste** : vraie scène 3D, animations fluides, interface très interactive et menus en ralenti (slow motion). Décision du propriétaire du 21/10/2026, qui remplace l'orientation « sobre » précédente.
+- L'échiquier reste lisible : le relief et les animations mettent les coups en valeur sans les masquer.
 - Les changements de produit ne doivent pas effacer l'application ni les modifications déjà présentes dans ce dépôt.
 
 ## Ce que le dépôt prouve aujourd'hui
@@ -34,13 +35,13 @@ Le protocole de partie sera indépendant de l'interface et du transport. Chaque 
 
 Le nouveau client sera construit dans Godot 4 avec GDScript. Ce choix remplace Pygame comme direction produit, car le projet doit être un jeu tactile animé avec des exports desktop et mobiles cohérents. Pygame reste la référence fonctionnelle pendant le portage; ses sources et l'historique ne sont pas supprimés. Les exports Windows/macOS/Linux/Android/iOS restent des jalons à vérifier séparément, pas une promesse acquise par le choix du moteur.
 
-Le rendu retenu est une scène 2.5D lisible : perspective légère, pièces sculptées, lumière douce, prise en main au doigt et transitions brèves. Le plateau reste fixe pendant les coups. On construit d'abord un client 2D/2.5D performant; Blender, outil libre de modélisation et d'animation, servira aux pièces si cela améliore le résultat. Material Maker est libre et pourra créer les matériaux PBR, sans devenir une dépendance de l'application. Le 3D complet n'est pas le but : il risque de réduire la lecture tactique et la précision sur petit écran.
+Le rendu retenu est une **vraie scène 3D** (`godot/ui/board_3d.gd`) : pièces Aster modélisées dans Blender (`assets/3d/aster_chess_set.glb`), matériaux PBR, ombres portées, caméra cinématique, glisser-déposer et survol. Les menus affichent la scène 3D en fond, avec une partie de démonstration rejouée au ralenti et un effet bullet time au survol. La lisibilité reste un critère : la caméra de jeu est fixe (légère respiration), les coups légaux et l'échec sont marqués sur le plateau. Material Maker pourra affiner les matériaux sans devenir une dépendance.
 
 ## Expérience de jeu
 
 - Accueil centré sur « Reprendre », « Jouer contre l'IA » et « Jouer à proximité ».
 - Partie plein écran : plateau prioritaire, commandes secondaires discrètes, pièces sélectionnées et coups légaux clairement marqués.
-- Animations rapides et sobres pour déplacement, capture, échec et fin de partie; option mouvement réduit et retour instantané.
+- Animations cinématiques : pièces en arc avec atterrissage amorti, captures renversées au ralenti avec poussée de caméra, échec pulsé en lumière rouge, roi mat qui bascule au ralenti. Une option « mouvement réduit » reste à ajouter.
 - Analyse, chat, variantes et réglages apparaissent à la demande.
 - IA réglable par niveau et rythme, avec indices facultatifs, entièrement hors ligne.
 

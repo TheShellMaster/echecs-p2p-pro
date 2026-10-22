@@ -1,15 +1,24 @@
-# Nouveau client Échecs
+# Client Échecs 3D (Godot 4.4)
 
-Le nouveau client du jeu est construit avec Godot 4. Le répertoire `core/` contient le cœur de règles hors ligne; `ui/` contient l'accueil et l'écran de partie. Le client Python/Pygame à la racine reste conservé comme version héritée jusqu'à ce que les fonctions phares soient portées et que chaque export ait été vérifié sur son appareil.
+Nouveau client du jeu : vraie scène 3D, pièces sculptées, animations cinématiques et menus en ralenti. Tout fonctionne hors ligne. Le client Python/Pygame à la racine reste la référence fonctionnelle jusqu'à la parité des fonctions.
+
+```sh
+godot --path godot                                                      # jouer (depuis la racine)
+godot --headless --path godot --script res://core/verify_chess_game.gd  # vérifier les règles
+```
+
+- `app.gd` : routeur des écrans. Le démarrage réel passe par `app.tscn`, pas par `main.tscn`.
+- `core/` : règles d'échecs indépendantes de l'interface ([API](core/README.md)).
+- `ui/` : `board_3d.gd` (plateau 3D), `home_screen.gd` (menu), `game_screen.gd` (partie), `nearby_screen.gd` (réseau local).
+- `net/` : transport pour le réseau local.
+- `tools/` : captures d'écran automatiques.
+
+Documentation : [guide du joueur](../docs/GUIDE_JOUEUR.md), [architecture](../docs/ARCHITECTURE.md), [développement](../docs/DEVELOPPEMENT.md), [feuille de route](../docs/FEUILLE_DE_ROUTE.md).
 
 ## Principes
 
 - Jouer contre l'IA sans compte et sans Internet.
-- Jouer à deux sur le même appareil ou découvrir une partie à proximité.
-- Interface lumineuse, tactile, lisible, avec des animations courtes et interrompables.
-- Aucune dépendance à un service cloud pour les règles, l'IA ou la sauvegarde.
-- Portage incrémental : ne pas retirer une fonction historique avant sa parité dans le nouveau client.
-
-## État
-
-La scène d'accueil et le cœur des règles sont en cours d'intégration. Ils ne constituent pas encore une version de jeu livrable. Stockfish, les salons réseau, la reprise de partie, les variantes de rendu et les exports mobiles restent à intégrer et à valider.
+- Jouer à deux sur le même appareil, ou trouver une partie à proximité.
+- Un rendu 3D réaliste et vivant, qui garde le plateau lisible.
+- Aucun service cloud pour les règles, l'IA ou la sauvegarde.
+- Portage progressif : on ne retire pas une fonction historique tant que son équivalent n'existe pas ici.

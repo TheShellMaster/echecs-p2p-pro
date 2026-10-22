@@ -45,7 +45,7 @@ func _initialize() -> void:
 	for uci in ["f2f3", "e7e5", "g2g4", "d8h4"]:
 		_check(game.play_uci(uci), "Fool's mate move " + uci)
 	_check(game.game_status() == "checkmate", "checkmate detection")
-	_check(game.get_san_history().back() == "Qh4#", "checkmate SAN")
+	_check(game.get_san_history()[-1] == "Qh4#", "checkmate SAN")
 	game.load_fen("7k/5Q2/6K1/8/8/8/8/8 b - - 0 1")
 	_check(game.game_status() == "stalemate", "stalemate detection")
 	_check(game.draw_claims().is_empty(), "no draw claim after stalemate")
